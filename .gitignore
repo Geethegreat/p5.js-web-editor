@@ -24,3 +24,6 @@ duplicates.json
 coverage
 
 *.tsbuildinfo
+test-results/
+cypress/videos/
+cypress/screenshots/
