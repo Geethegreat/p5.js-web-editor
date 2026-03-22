@@ -69,4 +69,12 @@ test.describe('p5.js Editor - Playwright', () => {
     expect(iframeSrc).toBeTruthy();
     await expect(page.locator('iframe')).toBeVisible({ timeout: 10000 });
   });
+
+  test.skip('sketch execution via postMessage', async ({ page }) => {
+    // FINDING: postMessage interception via page.evaluate() returns empty.
+    // The sketch iframe (localhost:8002) sends messages via window.parent.parent
+    // but these do not surface in Playwright's main page context.
+    // Testing sketch output would require CDP or a dedicated message relay
+    // — a candidate for GSoC implementation.
+  });
 });
