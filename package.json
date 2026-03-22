@@ -231,7 +231,7 @@
     "bson-objectid": "^2.0.3",
     "classnames": "^2.3.1",
     "clipboard": "^1.7.1",
-    "codemirror": "^5.62.0",
+    "codemirror": "^5.65.21",
     "codemirror-colorpicker": "^1.9.72",
     "connect-mongo": "^5.1.0",
     "console-feed": "^3.2.0",
