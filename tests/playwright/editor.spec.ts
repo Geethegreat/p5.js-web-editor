@@ -28,9 +28,14 @@ test.describe('p5.js Editor - Playwright', () => {
       if (btn) btn.click();
     });
   }
-
   test('editor loads and has a sketch iframe', async ({ page }) => {
-    await page.goto('http://localhost:8000');
+    // Wait for server to be ready
+    await page.waitForTimeout(1000);
+
+    await page.goto('http://localhost:8000', {
+      waitUntil: 'domcontentloaded', // less strict than 'load'
+      timeout: 30000
+    });
     await dismissCookies(page);
     await clickPlayButton(page);
 
