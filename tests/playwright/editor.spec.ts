@@ -69,16 +69,13 @@ test.describe('p5.js Editor – Playwright E2E', () => {
 
     await dismissCookies(page);
 
-    // Wait for CodeMirror
     await page.waitForFunction(() => {
       const wrapper = document.querySelector('.CodeMirror') as any;
       return !!wrapper?.CodeMirror;
     });
 
-    // Inject sketch into BOTH CodeMirror + Redux
     await page.evaluate(
       (newCode) => {
-        // Update CodeMirror UI
         const cm = (document.querySelector('.CodeMirror') as any)?.CodeMirror;
 
         if (!cm) {
@@ -86,11 +83,8 @@ test.describe('p5.js Editor – Playwright E2E', () => {
         }
 
         cm.setValue(newCode);
-
-        // Force CodeMirror refresh/events
         cm.refresh();
 
-        // Find Redux store
         const root = document.querySelector('#root') as any;
 
         const fiberKey = Object.keys(root).find((k) =>
@@ -98,7 +92,6 @@ test.describe('p5.js Editor – Playwright E2E', () => {
         );
 
         let node = root[fiberKey];
-
         let store: any = null;
 
         while (node) {
@@ -114,98 +107,47 @@ test.describe('p5.js Editor – Playwright E2E', () => {
           throw new Error('Redux store not found');
         }
 
-        const state = store.getState();
-
-        // Find active file
-        const selectedFile = state.files.find((f: any) => f.isSelectedFile);
+        const selectedFile = store
+          .getState()
+          .files.find((f: any) => f.isSelectedFile);
 
         if (!selectedFile) {
           throw new Error('Selected file not found');
         }
 
-        console.log('[SELECTED FILE ID]', selectedFile.id);
-
-        // Dispatch REAL update
         store.dispatch({
           type: 'UPDATE_FILE_CONTENT',
           id: selectedFile.id,
           content: newCode
         });
-
-        // Debug updated state
-        const updatedState = store.getState();
-
-        const updatedFile = updatedState.files.find(
-          (f: any) => f.id === selectedFile.id
-        );
-
-        console.log('[UPDATED REDUX FILE CONTENT]', updatedFile?.content);
       },
       `
 function setup() {
   createCanvas(400, 400);
-  console.log('hello from sketch');
 }
 
 function draw() {
   background(220);
+  console.log('hi from sketch');
+  noLoop();
 }
 `
     );
 
-    // Let Redux + React sync
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(1000);
 
-    // Verify CodeMirror content
-    // const editorContent = await page.evaluate(() => {
-    //   return (
-    //     document.querySelector('.CodeMirror') as any
-    //   ).CodeMirror.getValue();
-    // });
+    await page.locator('#play-sketch').click();
 
-    // Verify Redux content
-    // const reduxContent = await page.evaluate(() => {
-    //   const root = document.querySelector('#root') as any;
+    const openConsoleButton = page.locator('[aria-label="Open console"]');
 
-    //   const fiberKey = Object.keys(root).find((k) =>
-    //     k.startsWith('__reactContainer')
-    //   );
+    if (await openConsoleButton.isVisible()) {
+      await openConsoleButton.click();
+    }
 
-    //   let node = root[fiberKey];
-
-    //   let store: any = null;
-
-    //   while (node) {
-    //     if (node.memoizedProps?.store) {
-    //       store = node.memoizedProps.store;
-    //       break;
-    //     }
-
-    //     node = node.child;
-    //   }
-
-    //   const state = store.getState();
-
-    //   const selectedFile = state.files.find(
-    //     (f: any) => f.isSelectedFile
-    //   );
-
-    //   return selectedFile?.content;
-    // });
-
-    // Click Play
-    await page.evaluate(() => {
-      (document.querySelector(
-        '[aria-label="Play sketch"]'
-      ) as HTMLElement)?.click();
-    });
-
-    // Wait for preview iframe
-    await page.waitForSelector('iframe', {
-      timeout: 15000
-    });
-
-    // Give preview time to boot
-    await page.waitForTimeout(3000);
+    await expect
+      .poll(() => page.locator('.preview-console__messages').textContent(), {
+        timeout: 15000
+      })
+      .toContain('hi from sketch');
   });
 });
