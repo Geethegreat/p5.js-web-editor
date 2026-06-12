@@ -1,4 +1,4 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, Page, request } from '@playwright/test';
 
 async function dismissCookies(page: Page) {
   try {
@@ -64,64 +64,65 @@ test.describe('p5.js Editor – Playwright E2E', () => {
     // — a candidate for GSoC implementation.
   });
 
-  test('sketch console.log appears in editor console', async ({ page }) => {
-    await page.goto('http://localhost:8000');
+test('sketch console.log appears in editor console', async ({
+  page
+}) => {
+  await page.goto('http://localhost:8000');
 
-    await dismissCookies(page);
+  await dismissCookies(page);
 
-    await page.waitForFunction(() => {
-      const wrapper = document.querySelector('.CodeMirror') as any;
-      return !!wrapper?.CodeMirror;
+  await page.waitForFunction(() => {
+    const wrapper = document.querySelector('.CodeMirror') as any;
+    return !!wrapper?.CodeMirror;
+  });
+
+  await page.evaluate((newCode) => {
+    const cm = (document.querySelector('.CodeMirror') as any)
+      ?.CodeMirror;
+
+    if (!cm) {
+      throw new Error('CodeMirror not found');
+    }
+
+    cm.setValue(newCode);
+    cm.refresh();
+
+    const root = document.querySelector('#root') as any;
+
+    const fiberKey = Object.keys(root).find((k) =>
+      k.startsWith('__reactContainer')
+    );
+
+    let node = root[fiberKey];
+    let store: any = null;
+
+    while (node) {
+      if (node.memoizedProps?.store) {
+        store = node.memoizedProps.store;
+        break;
+      }
+
+      node = node.child;
+    }
+
+    if (!store) {
+      throw new Error('Redux store not found');
+    }
+
+    const selectedFile = store
+      .getState()
+      .files.find((f: any) => f.isSelectedFile);
+
+    if (!selectedFile) {
+      throw new Error('Selected file not found');
+    }
+
+    store.dispatch({
+      type: 'UPDATE_FILE_CONTENT',
+      id: selectedFile.id,
+      content: newCode
     });
-
-    await page.evaluate(
-      (newCode) => {
-        const cm = (document.querySelector('.CodeMirror') as any)?.CodeMirror;
-
-        if (!cm) {
-          throw new Error('CodeMirror not found');
-        }
-
-        cm.setValue(newCode);
-        cm.refresh();
-
-        const root = document.querySelector('#root') as any;
-
-        const fiberKey = Object.keys(root).find((k) =>
-          k.startsWith('__reactContainer')
-        );
-
-        let node = root[fiberKey];
-        let store: any = null;
-
-        while (node) {
-          if (node.memoizedProps?.store) {
-            store = node.memoizedProps.store;
-            break;
-          }
-
-          node = node.child;
-        }
-
-        if (!store) {
-          throw new Error('Redux store not found');
-        }
-
-        const selectedFile = store
-          .getState()
-          .files.find((f: any) => f.isSelectedFile);
-
-        if (!selectedFile) {
-          throw new Error('Selected file not found');
-        }
-
-        store.dispatch({
-          type: 'UPDATE_FILE_CONTENT',
-          id: selectedFile.id,
-          content: newCode
-        });
-      },
-      `
+  }, `
 function setup() {
   createCanvas(400, 400);
 }
@@ -131,23 +132,69 @@ function draw() {
   console.log('hi from sketch');
   noLoop();
 }
-`
-    );
+`);
 
-    await page.waitForTimeout(1000);
+  await page.waitForTimeout(1000);
 
-    await page.locator('#play-sketch').click();
+  await page.locator('#play-sketch').click();
+  
 
-    const openConsoleButton = page.locator('[aria-label="Open console"]');
+  const openConsoleButton = page.locator(
+    '[aria-label="Open console"]'
+  );
 
-    if (await openConsoleButton.isVisible()) {
-      await openConsoleButton.click();
+  if (await openConsoleButton.isVisible()) {
+    await openConsoleButton.click();
+  }
+
+  await expect.poll(
+    async () =>
+      await page
+        .locator('.preview-console__messages')
+        .textContent(),
+    {
+      timeout: 15000
     }
+  ).toContain('hi from sketch');
+});
 
-    await expect
-      .poll(() => page.locator('.preview-console__messages').textContent(), {
-        timeout: 15000
-      })
-      .toContain('hi from sketch');
+  test('see login instructions if not authenticated', async ({ page }) => {
+    await page.goto('http://localhost:8000');
+    await dismissCookies(page);
+
+    // Wait for CodeMirror
+    await page.waitForFunction(() => {
+      const wrapper = document.querySelector('.CodeMirror') as any;
+      return !!wrapper?.CodeMirror;
+    });
+
+    const editor = page.locator('.CodeMirror');
+
+    await editor.click();
+
+    await page.keyboard.press('Control+S');
+    await expect(
+      page.getByText(
+        'In order to save sketches, you must be logged in. Please Login or Sign Up.'
+      )
+    ).toBeVisible();
+  });
+
+  test('save option is disabled when user is not authenticated', async ({
+    page
+  }) => {
+    await page.goto('http://localhost:8000');
+    await dismissCookies(page);
+
+    await page.getByRole('menuitem', { name: 'File' }).click();
+
+    const saveButton = page.locator('#file-save');
+
+    await expect(saveButton).toHaveAttribute('aria-disabled', 'true');
+
+    await expect(saveButton).toHaveAttribute(
+      'aria-label',
+      'Log in to save your sketch'
+    );
   });
 });
