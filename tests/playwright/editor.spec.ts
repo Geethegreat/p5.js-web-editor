@@ -102,4 +102,40 @@ test.describe('p5.js Editor – Playwright E2E', () => {
       page.locator('.preview-console__messages')
     ).toContainText('hi from sketch', { timeout: 15_000 });
   });
+
+  test('unauthenticated users cannot save sketches', async ({ page }) => {
+    // Verify save option is disabled in File menu
+    await page.getByRole('menuitem', { name: 'File' }).click();
+
+    const saveButton = page.locator('#file-save');
+
+    await expect(saveButton).toHaveAttribute('aria-disabled', 'true');
+
+    await expect(saveButton).toHaveAttribute(
+      'aria-label',
+      'Log in to save your sketch'
+    );
+
+    // Close menu if needed
+    await page.keyboard.press('Escape');
+
+    // Wait for editor to initialize
+    await page.waitForFunction(() => {
+      const wrapper = document.querySelector('.CodeMirror') as any;
+      return !!wrapper?.CodeMirror;
+    });
+
+    const editor = page.locator('.CodeMirror');
+    await editor.click();
+
+    // Attempt save via keyboard shortcut
+    await page.keyboard.press('Control+S');
+
+    // Verify login prompt appears
+    await expect(
+      page.getByText(
+        'In order to save sketches, you must be logged in. Please Login or Sign Up.'
+      )
+    ).toBeVisible();
+  });
 });
