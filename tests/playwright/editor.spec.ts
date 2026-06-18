@@ -138,4 +138,47 @@ test.describe('p5.js Editor – Playwright E2E', () => {
       )
     ).toBeVisible();
   });
+
+  function uniqueSuffix() {
+    return Date.now().toString(36);
+  }
+
+  test('new user can signup with username and password', async ({ page }) => {
+    const username = `testuser_${uniqueSuffix()}`;
+    const password = 'testpassword';
+    const email = `testuser_${uniqueSuffix()}@example.com`;
+
+    await page.goto('/');
+
+    await page.goto('/signup');
+    await page.waitForURL('**/signup', { timeout: 10_000 });
+
+    await expect(page.locator('h2.form-container__title')).toHaveText(
+      'Sign Up'
+    );
+
+    await page.fill('input#username', username);
+    await page.fill('input#email', email);
+    await page.fill('input#password', password);
+    await page.fill('input#confirmPassword', password);
+
+    await expect(page.locator('button[type="submit"]')).toBeEnabled({
+      timeout: 5_000
+    });
+    await page.click('button[type="submit"]');
+
+    await page.waitForURL((url) => !url.pathname.endsWith('/signup'), {
+      timeout: 15_000
+    });
+
+    // Nav should no longer show "Log in"
+    await expect(page.locator('a[href="/login"]')).toHaveCount(0, {
+      timeout: 5_000
+    });
+
+    // Nav should show the new username
+    await expect(page.locator(`text=${username}`).first()).toBeVisible({
+      timeout: 5_000
+    });
+  });
 });
