@@ -139,14 +139,11 @@ test.describe('p5.js Editor – Playwright E2E', () => {
     ).toBeVisible();
   });
 
-  function uniqueSuffix() {
-    return Date.now().toString(36);
-  }
-
   test('new user can signup with username and password', async ({ page }) => {
-    const username = `testuser_${uniqueSuffix()}`;
+    const suffix = Date.now().toString(36);
+    const username = `testuser_${suffix}`;
     const password = 'testpassword';
-    const email = `testuser_${uniqueSuffix()}@example.com`;
+    const email = `testuser_${suffix}@example.com`;
 
     await page.goto('/');
 
@@ -156,11 +153,13 @@ test.describe('p5.js Editor – Playwright E2E', () => {
     await expect(page.locator('h2.form-container__title')).toHaveText(
       'Sign Up'
     );
+    await page.waitForTimeout(1000);
 
     await page.fill('input#username', username);
     await page.fill('input#email', email);
     await page.fill('input#password', password);
     await page.fill('input#confirmPassword', password);
+    await page.waitForTimeout(1000);
 
     await expect(page.locator('button[type="submit"]')).toBeEnabled({
       timeout: 5_000
@@ -175,10 +174,12 @@ test.describe('p5.js Editor – Playwright E2E', () => {
     await expect(page.locator('a[href="/login"]')).toHaveCount(0, {
       timeout: 5_000
     });
+    await page.waitForTimeout(1000);
 
     // Nav should show the new username
     await expect(page.locator(`text=${username}`).first()).toBeVisible({
       timeout: 5_000
     });
+    await page.waitForTimeout(1000);
   });
 });
