@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, request } from '@playwright/test';
 
 test.describe('p5.js Editor – Playwright E2E', () => {
   test.beforeEach(async ({ page }) => {
@@ -180,5 +180,75 @@ test.describe('p5.js Editor – Playwright E2E', () => {
     await expect(page.locator(`text=${username}`).first()).toBeVisible({
       timeout: 5_000
     });
+  });
+});
+
+test.describe('Authenticated user flows', () => {
+  const sharedUser = {
+    username: '',
+    email: '',
+    password: 'TestPass123!'
+  };
+
+  test.beforeAll(async () => {
+    const suffix = Date.now().toString(36);
+    sharedUser.username = `pw_test_${suffix}`;
+    sharedUser.email = `pw_test_${suffix}@example.com`;
+
+    const ctx = await request.newContext({ baseURL: 'http://localhost:8000' });
+    const res = await ctx.post('/editor/signup', {
+      headers: { 'Content-Type': 'application/json' },
+      data: {
+        username: sharedUser.username,
+        email: sharedUser.email,
+        password: sharedUser.password,
+        confirmPassword: sharedUser.password
+      }
+    });
+
+    const status = res.status();
+    const body = await res.text();
+    await ctx.dispose();
+
+    if (status < 200 || status >= 300) {
+      throw new Error(
+        `beforeAll: failed to create test user — ${status}\n${body}`
+      );
+    }
+  });
+
+  test('existing user can log in with username and password', async ({
+    page,
+    context
+  }) => {
+    // Navigate directly to login page
+    await page.goto('/login');
+    await page.waitForSelector('.form-container__title', { timeout: 30_000 });
+    await expect(page.locator('h2.form-container__title')).toHaveText('Log In');
+
+    // Fill the login form
+    // Passport's usernameField is 'email' — the input accepts either
+    // username or email as the value but the field name is 'email'
+    await page.fill('input[name="email"]', sharedUser.email);
+    await page.fill('input[name="password"]', sharedUser.password);
+
+    // Submit
+    await expect(page.locator('button[type="submit"]')).toBeEnabled({
+      timeout: 5_000
+    });
+    await page.click('button[type="submit"]');
+
+    // After successful login, redirected away from /login
+    await page.waitForURL((url) => !url.pathname.endsWith('/login'), {
+      timeout: 15_000
+    });
+
+    // Nav shows username, not "Log in"
+    await expect(page.locator('a[href="/login"]')).toHaveCount(0, {
+      timeout: 10_000
+    });
+    await expect(
+      page.locator(`text=${sharedUser.username}`).first()
+    ).toBeVisible({ timeout: 10_000 });
   });
 });
