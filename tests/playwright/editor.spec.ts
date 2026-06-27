@@ -184,6 +184,104 @@ test.describe('p5.js Editor – Playwright E2E', () => {
       timeout: 5_000
     });
   });
+
+  test('sketch persists and runs after unauthenticated user creates an account', async ({
+    page
+  }) => {
+    const suffix = Date.now().toString(36);
+    const username = `testuser_${suffix}`;
+    const password = 'testpassword';
+    const email = `testuser_${suffix}@example.com`;
+
+    // Run sketch as unauthenticated user
+    await page.goto('/');
+    await page.waitForSelector('.CodeMirror', { timeout: 30_000 });
+
+    const newCode = [
+      'function setup() {',
+      '  createCanvas(400, 400);',
+      '}',
+      '',
+      'function draw() {',
+      '  background(220);',
+      "  console.log('hi from sketch');",
+      '  noLoop();',
+      '}'
+    ].join('');
+
+    // Wait for CodeMirror to be ready
+    await expect(page.locator('.CodeMirror')).toBeVisible({ timeout: 30_000 });
+    await page.click('.CodeMirror-code', { force: true });
+
+    await page.keyboard.press('Control+A');
+    await page.keyboard.type(newCode, { delay: 5 });
+
+    await page.locator('#play-sketch').click();
+
+    await page.waitForFunction(
+      () =>
+        Array.from(document.querySelectorAll('iframe')).some((f) =>
+          (f as HTMLIFrameElement).src.includes('8002')
+        ),
+      { timeout: 10_000 }
+    );
+
+    await expect(
+      page.locator('.preview-console__messages')
+    ).toContainText('hi from sketch', { timeout: 15_000 });
+
+    // Try to save the sketch, which should prompt login
+    await page.keyboard.press('Control+S');
+
+    await expect(
+      page.getByText(
+        'In order to save sketches, you must be logged in. Please Login or Sign Up.'
+      )
+    ).toBeVisible();
+
+    // Click on the signup prompt
+    await page.locator('a[href="/signup"]').last().click();
+    await page.waitForURL('**/signup', { timeout: 10_000 });
+
+    // Fill the signup form
+    await page.fill('input#username', username);
+    await page.fill('input#email', email);
+    await page.fill('input#password', password);
+    await page.fill('input#confirmPassword', password);
+
+    // Submit
+    await expect(page.locator('button[type="submit"]')).toBeEnabled({
+      timeout: 5_000
+    });
+
+    await page.click('button[type="submit"]');
+
+    // After successful signup, redirected away from /signup
+    await page.waitForURL((url) => !url.pathname.endsWith('/signup'), {
+      timeout: 15_000
+    });
+
+    await expect(page.locator(`text=${username}`).first()).toBeVisible({
+      timeout: 10_000
+    });
+
+    await page.waitForSelector('.CodeMirror', { timeout: 30_000 });
+
+    // Run the same sketch again as authenticated user
+    await page.locator('#play-sketch').click();
+
+    await page.waitForFunction(
+      () =>
+        Array.from(document.querySelectorAll('iframe')).some((f) =>
+          (f as HTMLIFrameElement).src.includes('8002')
+        ),
+      { timeout: 10_000 }
+    );
+
+    await expect(
+      page.locator('.preview-console__messages')
+    ).toContainText('hi from sketch', { timeout: 15_000 });
+  });
 });
 
 test.describe('Authenticated user flows', () => {
