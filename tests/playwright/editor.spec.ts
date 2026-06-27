@@ -1,22 +1,25 @@
 import { test, expect, request } from '@playwright/test';
 
+async function dismissCookieBanner(page: any) {
+  await page.goto('/');
+  // Wait for the page to be interactive before checking for the banner
+  await page.waitForSelector('.CodeMirror', { timeout: 30_000 });
+
+  // Dismiss cookie banner via JS — handles the case where the button
+  // is outside the viewport due to the Redux DevTools sidebar
+  await page.evaluate(() => {
+    const btn = Array.from(document.querySelectorAll('button')).find((b) =>
+      /allow essential|allow all/i.test(b.textContent ?? '')
+    ) as HTMLElement | undefined;
+    btn?.click();
+  });
+
+  await page.waitForTimeout(400);
+}
+
 test.describe('p5.js Editor – Playwright E2E', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-
-    // Wait for the page to be interactive before checking for the banner
-    await page.waitForSelector('.CodeMirror', { timeout: 30_000 });
-
-    // Dismiss cookie banner via JS — handles the case where the button
-    // is outside the viewport due to the Redux DevTools sidebar
-    await page.evaluate(() => {
-      const btn = Array.from(document.querySelectorAll('button')).find((b) =>
-        /allow essential|allow all/i.test(b.textContent ?? '')
-      ) as HTMLElement | undefined;
-      btn?.click();
-    });
-
-    await page.waitForTimeout(400);
+    await dismissCookieBanner(page);
   });
 
   test('can execute code from the editor by clicking the Play button', async ({
@@ -217,6 +220,11 @@ test.describe('Authenticated user flows', () => {
     }
   });
 
+  test.beforeEach(async ({ page }) => {
+    // Dismiss cookie banner for authenticated tests too
+    await dismissCookieBanner(page);
+  });
+
   test('existing user can log in with username and password', async ({
     page,
     context
@@ -247,6 +255,7 @@ test.describe('Authenticated user flows', () => {
     await expect(page.locator('a[href="/login"]')).toHaveCount(0, {
       timeout: 10_000
     });
+
     await expect(
       page.locator(`text=${sharedUser.username}`).first()
     ).toBeVisible({ timeout: 10_000 });
