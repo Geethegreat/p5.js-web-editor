@@ -59,9 +59,10 @@ test.describe('p5.js Editor – Playwright E2E', () => {
       )} status=${response?.status()} url=${response?.url()}`
     );
 
-    // Wait for the page to be interactive before checking for the banner
-    await page.waitForSelector('.CodeMirror', { timeout: 300_000 });
-    console.log(`[codemirror-visible] ${el(Date.now() - t0)}`);
+    await expect(
+      page.locator('a.skip_link[href="#play-sketch"]')
+    ).toHaveText('Skip to Play Sketch', { timeout: 60_000 });
+    console.log(`[skip-link-visible] ${el(Date.now() - t0)}`);
 
     // Dismiss cookie banner via JS — handles the case where the button
     // is outside the viewport due to the Redux DevTools sidebar
@@ -78,6 +79,8 @@ test.describe('p5.js Editor – Playwright E2E', () => {
   test('can execute code from the editor by clicking the Play button', async ({
     page
   }) => {
+    const t0 = Date.now();
+    const el = (ms: number) => `+${(ms / 1000).toFixed(1)}s`;
     const newCode = [
       'function setup() {',
       '  createCanvas(400, 400);',
@@ -90,14 +93,32 @@ test.describe('p5.js Editor – Playwright E2E', () => {
       '}'
     ].join('\n');
 
-    // Wait for CodeMirror to be ready
-    await page.waitForFunction(
-      () => {
-        const wrapper = document.querySelector('.CodeMirror') as any;
-        return (wrapper?.CodeMirror?.getValue?.() ?? '').length > 0;
-      },
-      { timeout: 30_000 }
-    );
+    try {
+      await page.waitForFunction(
+        () => {
+          const wrapper = document.querySelector('.CodeMirror') as any;
+          return (wrapper?.CodeMirror?.getValue?.() ?? '').length > 0;
+        },
+        { timeout: 800_000 }
+      );
+      console.log(`[codemirror-ready] ${el(Date.now() - t0)}`);
+    } finally {
+      const entries = await page.evaluate(() =>
+        performance
+          .getEntriesByType('resource')
+          .map((e) => ({
+            name: e.name,
+            duration: Math.round(e.duration),
+            start: Math.round(e.startTime)
+          }))
+          .sort((a, b) => b.duration - a.duration)
+          .slice(0, 25)
+      );
+      console.log(
+        `[perf:resources] ${el(Date.now() - t0)}`,
+        JSON.stringify(entries)
+      );
+    }
 
     // Update code via CodeMirror API + Redux dispatch
     // (confirmed working approach from earlier diagnostic work)

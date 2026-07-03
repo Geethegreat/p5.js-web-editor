@@ -1,76 +1,92 @@
-name: E2E Tests
-
+name: E2E Testing
 on:
+  workflow_dispatch:
   pull_request:
-    branches:
-      - develop
-
+    branches: [develop]
+  issue_comment:
+    types: [created]
 jobs:
-  e2e:
-    name: End-to-end tests
-    environment: e2e-tests
+  test-e2e:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'pull_request' ||
+      (
+        github.event.issue.pull_request &&
+        github.event.comment.body == '/e2e' &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+      )
+    timeout-minutes: 60
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+    - name: Resolve PR head ref
+      if: github.event_name == 'issue_comment'
+      id: pr
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { data: pr } = await github.rest.pulls.get({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.issue.number
+          });
+          core.setOutput('sha', pr.head.sha);
 
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18.20.x'
-          cache: 'npm'
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event_name == 'issue_comment' && steps.pr.outputs.sha || github.ref }}
 
-      - name: Start MongoDB
-        uses: supercharge/mongodb-github-action@1.10.0
-        with:
-          mongodb-version: '6.0'
+    - name: Set up node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18.20.x'
 
-      - name: Create .env file
-        run: cp .env.e2e .env
+    - name: Create .env file
+      run: cp .env.e2e .env
 
-      - name: Install dependencies
-        run: npm ci
+    - name: Start MongoDB
+      uses: supercharge/mongodb-github-action@1.10.0
+      with:
+        mongodb-version: '6.0'
 
-      - name: Disable eval devtool for CI
-        run: |
-          sed -i "s/devtool: 'eval-cheap-module-source-map'/devtool: false/" webpack/config.dev.js
-          echo "=== Verifying patch ==="
-          grep "devtool" webpack/config.dev.js
+    - name: Install dependencies
+      run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+    - name: Install Playwright Browsers
+      run: npx playwright install --with-deps chromium
 
-      - name: Start the app
-        run: npm run start &
+    - name: Start app
+      run: npm start > app.log 2>&1 &
 
-      - name: Wait for webpack to finish compiling
-        run: |
-          echo "Waiting for webpack to finish..."
-          for i in $(seq 1 120); do
-            # Check if app.js is fully compiled by requesting it directly
-            # webpack serves a loading response until compilation is done
-            SIZE=$(curl -s http://localhost:8000/app.js | wc -c)
-            echo "app.js size: $SIZE bytes (attempt $i/120)"
-            if [ "$SIZE" -gt 1000000 ]; then
-              echo "app.js fully compiled ($SIZE bytes) after $((i * 5))s"
-              sleep 10
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "Webpack did not finish in time"
+    - name: Wait for app to be ready
+      run: |
+        npx wait-on@7 http://localhost:8000 --timeout 180000 || {
+          echo "::error::App failed to become ready at http://localhost:8000 within 180s"
+          echo "----- app.log -----"
+          cat app.log
           exit 1
+        }
 
-      - name: Run E2E tests
-        run: npm run e2e:ci
-        env:
-          CI: true
+    - name: Run Playwright tests
+      run: npm run e2e:ci
 
-      - name: Upload Playwright report on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
+    - name: Upload artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-report
+        path: playwright-report/
+        retention-days: 30
 
+    # Always (not just on failure): the server's own stdout/stderr during
+    # the slow-loading window is the other half of the diagnostic picture,
+    # and we want it even when the test eventually passes.
+    - name: Upload server log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-log
+        path: app.log
+        retention-days: 30
+        if-no-files-found: warn
