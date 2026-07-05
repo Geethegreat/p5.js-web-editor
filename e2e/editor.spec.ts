@@ -84,4 +84,69 @@ test.describe('editor page', () => {
       )
     ).toBeVisible();
   });
+
+  test('unauthenticated users cannot save sketches', async ({ page }) => {
+    // Verify save option is disabled in File menu
+    await page.getByRole('menuitem', { name: 'File' }).click();
+
+    const saveButton = page.locator('#file-save');
+
+    await expect(saveButton).toHaveAttribute('aria-disabled', 'true');
+    await expect(saveButton).toHaveAttribute(
+      'aria-label',
+      'Log in to save your sketch'
+    );
+
+    // Close menu if needed
+    await page.keyboard.press('Escape');
+
+    // Attempt save via keyboard shortcut
+    await page.locator('.editor-holder').click();
+    await page.keyboard.press('ControlOrMeta+S');
+
+    // Verify login prompt appears
+    await expect(
+      page.getByText(
+        'In order to save sketches, you must be logged in. Please Login or Sign Up.'
+      )
+    ).toBeVisible();
+  });
+
+  test('new user can signup with username and password', async ({ page }) => {
+    const suffix = Date.now().toString(36);
+    const username = `testuser_${suffix}`;
+    const password = 'testpassword';
+    const email = `testuser_${suffix}@example.com`;
+
+    await page.goto('/signup');
+    await page.waitForURL('**/signup', { timeout: 10_000 });
+
+    await expect(page.locator('h2.form-container__title')).toHaveText(
+      'Sign Up'
+    );
+
+    await page.fill('input#username', username);
+    await page.fill('input#email', email);
+    await page.fill('input#password', password);
+    await page.fill('input#confirmPassword', password);
+
+    await expect(page.locator('button[type="submit"]')).toBeEnabled({
+      timeout: 5_000
+    });
+    await page.click('button[type="submit"]');
+
+    await page.waitForURL((url) => !url.pathname.endsWith('/signup'), {
+      timeout: 15_000
+    });
+
+    // Nav should no longer show "Log in"
+    await expect(page.locator('a[href="/login"]')).toHaveCount(0, {
+      timeout: 5_000
+    });
+
+    // Nav should show the new username
+    await expect(page.locator(`text=${username}`).first()).toBeVisible({
+      timeout: 5_000
+    });
+  });
 });
