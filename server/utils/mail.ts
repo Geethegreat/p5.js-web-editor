@@ -25,6 +25,10 @@ class Mail {
   }
 
   async sendMail(mailOptions: nodemailer.SendMailOptions) {
+    if (process.env.DISABLE_EMAIL_SENDING === 'true') {
+      return { messageId: 'email-sending-disabled' };
+    }
+
     try {
       const response = await this.client.sendMail(mailOptions);
       return response;
