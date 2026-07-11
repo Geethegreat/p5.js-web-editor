@@ -277,4 +277,46 @@ test.describe('Authenticated user flows', () => {
       page.locator(`text=${sharedUser.username}`).first()
     ).toBeVisible({ timeout: 10_000 });
   });
+
+  test('logged in user can save a sketch and it persists after navigating away', async ({
+    page
+  }) => {
+    // Log in first
+    await page.fill('input[name="email"]', sharedUser.email);
+    await page.fill('input[name="password"]', sharedUser.password);
+    await expect(page.locator('button[type="submit"]')).toBeEnabled({
+      timeout: 5_000
+    });
+    await page.click('button[type="submit"]');
+
+    await page.waitForURL((url) => !url.pathname.endsWith('/login'), {
+      timeout: 15_000
+    });
+
+    // Get the sketch name from the editor
+    const sketchName = await page
+      .locator('button.editable-input__label')
+      .textContent();
+    expect(sketchName).toBeTruthy();
+
+    await page.locator('.editor-holder').click();
+    await page.keyboard.press('ControlOrMeta+S');
+
+    // Wait for the save confirmation message to appear
+    await expect(page.getByText('Sketch saved.')).toBeVisible({
+      timeout: 10_000
+    });
+
+    // Verify that the sketch is saved in user's assets
+    await page.goto(`/${sharedUser.username}/sketches`);
+
+    await page
+      .locator('table.sketches-table')
+      .getByText(sketchName ?? '')
+      .click();
+
+    await expect(
+      page.locator('button.editable-input__label')
+    ).toContainText(sketchName ?? '', { timeout: 10_000 });
+  });
 });
