@@ -46,7 +46,7 @@
     }
   },
   "Banner": {
-    "Copy": "<bold>Donate Today!</bold> Support p5.js and the Processing Foundation."
+    "Copy": "<bold>p5.js v2.0 will become the default editor version this August</bold>! Check out the timeline and ask questions in the linked issue!"
   },
   "CodemirrorFindAndReplace": {
     "ToggleReplace": "Alternar entre localizar/substituir",
@@ -475,6 +475,7 @@
     "AddSketch": "Adicionar Esboço",
     "DeleteFromCollection": "Realmente quer remover {{name_sketch}} dessa coleção?",
     "SketchDeleted": "Esboço apagado",
+    "SketchRemoveLabel": "Remove from Collection",
     "SketchRemoveARIA": "Remover esboço da coleção",
     "DescriptionPlaceholder": "Adicionar descrição",
     "NumSketches": "{{count}} esboço(s)",

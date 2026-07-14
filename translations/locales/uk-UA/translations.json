@@ -48,7 +48,7 @@
     }
   },
   "Banner": {
-    "Copy": "<bold>Donate Today!</bold> Support p5.js and the Processing Foundation."
+    "Copy": "<bold>p5.js v2.0 will become the default editor version this August</bold>! Check out the timeline and ask questions in the linked issue!"
   },
   "CodemirrorFindAndReplace": {
     "ToggleReplace": "Увімкнути заміну",
@@ -497,6 +497,7 @@
     "AddSketch": "Додати скетч",
     "DeleteFromCollection": "Ви впевнені, що хочете видалити {{name_sketch}} з цієї колекції?",
     "SketchDeleted": "Скетч видалено",
+    "SketchRemoveLabel": "Remove from Collection",
     "SketchRemoveARIA": "Видалити скетч із колекції",
     "DescriptionPlaceholder": "Додати опис",
     "Description": "опис",
