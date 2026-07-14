@@ -1,18 +1,21 @@
 import { defineConfig, devices } from '@playwright/test';
+import dotenv from 'dotenv';
+import path from 'path';
 
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// import dotenv from 'dotenv';
-// import path from 'path';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
+// e2e/global.teardown.ts reads MONGO_URL to drop the E2E test database —
+// it runs as its own Node process, so it needs this loaded explicitly
+// rather than relying on the app server's own dotenv call.
+dotenv.config({ path: path.resolve(__dirname, '.env.e2e') });
 
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
   testDir: './e2e',
+  // Same file for both — drop the test DB before the run (clean slate,
+  // in case a previous run crashed and left it dirty) and after (cleanup).
+  globalSetup: 'e2e/global.teardown.ts',
+  globalTeardown: 'e2e/global.teardown.ts',
   /* Timeout per individual test (w/ before & after hooks). Make CI longer than default 30s to accomodate */
   timeout: process.env.CI ? 60_000 : 30_000,
   /* Run tests in files in parallel */

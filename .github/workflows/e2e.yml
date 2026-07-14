@@ -49,9 +49,7 @@ jobs:
         cache: 'npm'
 
     - name: Create .env file
-      run: |
-        cp .env.example .env
-        echo "DISABLE_EMAIL_SENDING=true" >> .env
+      run: cp .env.e2e .env
 
     - name: Start MongoDB
       uses: supercharge/mongodb-github-action@1.10.0

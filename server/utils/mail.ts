@@ -25,8 +25,10 @@ class Mail {
   }
 
   async sendMail(mailOptions: nodemailer.SendMailOptions) {
-    if (process.env.DISABLE_EMAIL_SENDING === 'true') {
-      return { messageId: 'email-sending-disabled' };
+    // E2E CI only ever has fake Mailgun credentials, so a real send would
+    // always fail. This is a workaround, not the final design.
+    if (process.env.E2E_TESTING === 'true') {
+      return { messageId: 'e2e-test-email-skipped' };
     }
 
     try {
