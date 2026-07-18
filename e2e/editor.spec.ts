@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test.describe('editor page', () => {
   test.beforeEach(async ({ page }) => {
@@ -50,7 +50,7 @@ test.describe('editor page', () => {
     // Wait for the sketch iframe src to confirm the sketch actually started
     await expect(
       page.locator('iframe[title="sketch preview"]')
-    ).toHaveAttribute('src', /8002/, { timeout: 10_000 });
+    ).toHaveAttribute('src', /9002/, { timeout: 10_000 });
 
     // Assert console output
     await expect(

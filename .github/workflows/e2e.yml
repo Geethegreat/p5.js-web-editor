@@ -48,9 +48,6 @@ jobs:
         node-version: '18.20.x'
         cache: 'npm'
 
-    - name: Create .env file
-      run: cp .env.example .env
-
     - name: Start MongoDB
       uses: supercharge/mongodb-github-action@1.10.0
       with:
@@ -74,13 +71,16 @@ jobs:
       if: steps.playwright-cache.outputs.cache-hit == 'true'
       run: npx playwright install-deps chromium
 
+    # Start the app here (rather than leaving it to Playwright's webServer)
+    # so its output is captured to app.log for debugging.
+    # Playwright's reuseExistingServer detects it on :9000 and skips its own start.
     - name: Start app
-      run: npm start > app.log 2>&1 &
+      run: ENV_FILE=.env.e2e npm start > app.log 2>&1 &
 
     - name: Wait for app to be ready
       run: |
-        npx wait-on@7 http://localhost:8000 --timeout 180000 || {
-          echo "::error::App failed to become ready at http://localhost:8000 within 180s"
+        npx wait-on@7 http://localhost:9000 --timeout 180000 || {
+          echo "::error::App failed to become ready at http://localhost:9000 within 180s"
           echo "----- app.log -----"
           cat app.log
           exit 1
